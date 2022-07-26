@@ -1,3 +1,8 @@
+/// <reference path="babylon.module.d.ts" />
+/// <reference path="babylonjs.loaders.module.d.ts" />
+/// <reference path="babylonjs.materials.module.d.ts" />
+/// <reference path="babylon.gui.module.d.ts" />
+
 var engine = new BABYLON.NativeEngine();
 var scene = new BABYLON.Scene(engine);
 
@@ -6,12 +11,10 @@ engine.runRenderLoop(function () {
 });
 
 //-------------------- YOUR CODE GOES HERE ------------------------------
-
-// This creates and positions a free camera (non-mesh)
-var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
-
-// This targets the camera to scene origin
+scene.createDefaultCamera(true, true, true);
+var camera = scene.activeCamera;
 camera.setTarget(BABYLON.Vector3.Zero());
+camera.position = new BABYLON.Vector3(0, 5, -10);
 
 // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
 var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);

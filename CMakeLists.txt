@@ -13,6 +13,12 @@ set(BABYLON_JS_SCRIPTS
     "Scripts/meshwriter.min.js"
     "Scripts/ammo.js")
 
+set(BABYLON_JS_DEBUG
+    "babylon.gui.module.d.ts"
+    "babylon.module.d.ts"
+    "babylonjs.loaders.module.d.ts"
+    "babylonjs.materials.module.d.ts")
+
 add_executable(BabylonNativeSample main.cpp ${BABYLON_JS_SCRIPTS})
 
 target_link_libraries(BabylonNativeSample 
@@ -30,7 +36,7 @@ target_link_libraries(BabylonNativeSample
 
 target_compile_features(BabylonNativeSample PRIVATE cxx_std_17)
 
-foreach(SCRIPT ${BABYLON_JS_SCRIPTS})
+foreach(SCRIPT ${BABYLON_JS_SCRIPTS} ${BABYLON_JS_DEBUG})
     get_filename_component(SCRIPT_NAME "${SCRIPT}" NAME)
     add_custom_command(
         OUTPUT "${CMAKE_CFG_INTDIR}/Scripts/${SCRIPT_NAME}"

@@ -28,6 +28,7 @@ int main()
 {
 	 //-------------- Win32 application startup ---------------
 	 const char CLASS_NAME[] = "Babylon Native Class";
+
 	 auto hInstance = GetModuleHandle( NULL );
 
 	 WNDCLASS wc = { };
@@ -44,6 +45,7 @@ int main()
 
 	 ShowWindow( hwnd, 1 );
 	 UpdateWindow( hwnd );
+	 EnableMouseInPointer( true );
 
 	 //-------------- Initialize Babylon ----------------
 	 RECT rect;
@@ -103,20 +105,36 @@ int main()
 	 loader.LoadScript( "app:///Scripts/app.js" );
 
 	 //-------------- Game loop -----------------
+
 	 MSG msg {};
 
-	 while( GetMessage( &msg, NULL, 0, 0 ) )
+	 // Main message loop:
+	 while( msg.message != WM_QUIT )
 	 {
-		  if( device )
+		  BOOL result;
+
+		  if( minimized )
 		  {
-				update->Finish();
-				device->FinishRenderingCurrentFrame();
-				device->StartRenderingCurrentFrame();
-				update->Start();
+				result = GetMessage( &msg, nullptr, 0, 0 );
+		  }
+		  else
+		  {
+				if( device )
+				{
+					 update->Finish();
+					 device->FinishRenderingCurrentFrame();
+					 device->StartRenderingCurrentFrame();
+					 update->Start();
+				}
+
+				result = PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) && msg.message != WM_QUIT;
 		  }
 
-		  TranslateMessage( &msg );
-		  DispatchMessage( &msg );
+		  if( result )
+		  {
+				TranslateMessage( &msg );
+				DispatchMessage( &msg );
+		  }
 	 }
 
 	 return ( int ) msg.wParam;
@@ -165,6 +183,64 @@ void Uninitialize()
 	 nativeCanvas.reset();
 	 update.reset();
 	 device.reset();
+}
+
+void RefreshBabylon( HWND hWnd )
+{
+	 Uninitialize();
+
+	 RECT rect;
+	 if( !GetClientRect( hWnd, &rect ) )
+	 {
+		  return;
+	 }
+
+	 auto width = static_cast< size_t >( rect.right - rect.left );
+	 auto height = static_cast< size_t >( rect.bottom - rect.top );
+
+	 Babylon::Graphics::WindowConfiguration graphicsConfig {};
+	 graphicsConfig.Window = hWnd;
+	 graphicsConfig.Width = width;
+	 graphicsConfig.Height = height;
+	 graphicsConfig.MSAASamples = 4;
+
+	 device = Babylon::Graphics::Device::Create( graphicsConfig );
+	 update = std::make_unique<Babylon::Graphics::DeviceUpdate>( device->GetUpdate( "update" ) );
+	 device->StartRenderingCurrentFrame();
+	 update->Start();
+
+	 runtime = std::make_unique<Babylon::AppRuntime>();
+
+	 runtime->Dispatch( []( Napi::Env env ) {
+		  device->AddToJavaScript( env );
+
+		  Babylon::Polyfills::Console::Initialize( env, []( const char* message, auto ) {
+				OutputDebugStringA( message );
+		  } );
+
+		  Babylon::Polyfills::Window::Initialize( env );
+
+		  Babylon::Polyfills::XMLHttpRequest::Initialize( env );
+		  nativeCanvas = std::make_unique <Babylon::Polyfills::Canvas>( Babylon::Polyfills::Canvas::Initialize( env ) );
+
+		  Babylon::Plugins::NativeEngine::Initialize( env );
+
+		  Babylon::Plugins::NativeOptimizations::Initialize( env );
+
+		  nativeInput = &Babylon::Plugins::NativeInput::CreateForJavaScript( env );
+	 } );
+
+	 Babylon::ScriptLoader loader { *runtime };
+	 loader.Eval( "document = {}", "" );
+	 loader.LoadScript( "app:///Scripts/ammo.js" );
+	 // Commenting out recast.js for now because v8jsi is incompatible with asm.js.
+	 // loader.LoadScript("app:///Scripts/recast.js");
+	 loader.LoadScript( "app:///Scripts/babylon.max.js" );
+	 loader.LoadScript( "app:///Scripts/babylonjs.loaders.js" );
+	 loader.LoadScript( "app:///Scripts/babylonjs.materials.js" );
+	 loader.LoadScript( "app:///Scripts/babylon.gui.js" );
+	 loader.LoadScript( "app:///Scripts/meshwriter.min.js" );
+	 loader.LoadScript( "app:///Scripts/app.js" );
 }
 
 LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam )
@@ -268,10 +344,18 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam 
 				}
 				break;
 		  }
+		  case WM_KEYDOWN:
+		  {
+				if( wParam == 'R' )
+				{
+					 RefreshBabylon( hWnd );
+				}
+				break;
+		  }
 		  default:
 		  {
 				return DefWindowProc( hWnd, message, wParam, lParam );
 		  }
 	 }
-	 return DefWindowProc( hWnd, message, wParam, lParam );
+	 return 0;
 }
